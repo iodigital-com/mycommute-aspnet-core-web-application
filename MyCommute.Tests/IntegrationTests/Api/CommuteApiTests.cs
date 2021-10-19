@@ -40,6 +40,8 @@ public class CommuteApiTests
         Assert.AreNotEqual(Guid.Empty, userRegistrationResponse!.Id);
 
         employeeId = userRegistrationResponse.Id;
+        
+        await AuthenticationHelper.LoginAsync(client, employeeId, request.Email);
     }
     
     [OneTimeTearDown]

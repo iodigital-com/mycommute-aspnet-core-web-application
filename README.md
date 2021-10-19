@@ -309,3 +309,139 @@ The `Commute` entity matching the provided Id is removed from the database using
 
 If no commute matching the provided id is found in the database, a [`NotFoundResult`](https://docs.microsoft.com/en-us/dotnet/api/microsoft.aspnetcore.mvc.controllerbase.notfound) is returned.
 
+### Add authentication & authorization
+>Authentication is the process of determining a user's identity. Authorization is the process of determining whether a user has access to a resource.
+>https://docs.microsoft.com/en-us/aspnet/core/security/authentication/
+
+#### Install NuGet packages
+Install the latest version of the following NuGet packages:
+- [Microsoft.AspNetCore.Authentication.Core](https://www.nuget.org/packages/Microsoft.AspNetCore.Authentication.Core)
+- [Microsoft.AspNetCore.Authentication.JwtBearer](https://www.nuget.org/packages/Microsoft.AspNetCore.Authentication.JwtBearer)
+
+#### Add JWT encryption secret to configuration
+The `"Secret"` property is used by the api to sign and verify JWT tokens for authentication, update it with your own random string to ensure nobody else can generate a JWT to gain unauthorised access to your application. 
+
+> Using the standard HSA 256 encryption for the signature, the secret should at least be 32 characters long, but the longer the better.
+> https://stackoverflow.com/a/62095056
+
+Open the `appsettings.Development.json` file and add:
+
+```json
+"JwtConfig": {
+    "Secret": "{{ insert random string here }}"
+  }
+```
+
+Now, create a new class `JwtConfig` in namespace `MyCommute.WebApplication.Configuration`, with properties:
+- `Secret` (string)
+
+Then, in `Program.cs` - before `var app = builder.Build();` - add the following:
+
+```c#
+builder.Services.Configure<JwtConfig>(builder.Configuration.GetSection("JwtConfig"));
+
+// within this section we are configuring the authentication and setting the default scheme
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+.AddJwtBearer(jwt => {
+    var key = Encoding.ASCII
+        .GetBytes(builder.Configuration["JwtConfig:Secret"]);
+
+    jwt.SaveToken = true;
+    jwt.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuerSigningKey =
+            true, // this will validate the 3rd part of the jwt token using the secret that we added in the appsettings and verify we have generated the jwt token
+        IssuerSigningKey = new SymmetricSecurityKey(key), // Add the secret key to our Jwt encryption
+        ValidateIssuer = false,
+        ValidateAudience = false,
+        RequireExpirationTime = false,
+        ValidateLifetime = true
+    };
+});
+            
+builder.Services.AddAuthorization(options =>
+{
+    var defaultAuthorizationPolicyBuilder = new AuthorizationPolicyBuilder(
+        JwtBearerDefaults.AuthenticationScheme);
+    defaultAuthorizationPolicyBuilder = defaultAuthorizationPolicyBuilder.RequireAuthenticatedUser();
+    
+    options.DefaultPolicy = defaultAuthorizationPolicyBuilder.Build();
+});
+```
+### Implement AuthenticationController
+The `AuthenticationController` will provide functionality concerning user authentication.
+
+In namespace `MyCommute.WebApplication.Controllers` create a new `AuthenticationController`, which inherits from [`ControllerBase`](https://docs.microsoft.com/en-us/dotnet/api/microsoft.aspnetcore.mvc.controllerbase).
+
+Annotate the class with [`ApiControllerAttribute`](https://docs.microsoft.com/en-us/dotnet/api/microsoft.aspnetcore.mvc.apicontrollerattribute) and [`RouteAttribute`](https://docs.microsoft.com/en-us/dotnet/api/microsoft.aspnetcore.mvc.routeattribute).
+
+> [ApiController] indicates that a type and all derived types are used to serve HTTP API responses.
+
+> [Route("[controller]")] configures the route, in this case `/Authentication`
+```c#
+[ApiController]
+[Route("[controller]")]
+public class AuthenticationController : ControllerBase
+```
+#### Declare the LoginRequest & LoginResponse models
+In the `MyCommute.Shared` class library project, navigate to directory `Models` and create a new directory `Authentication`.
+Using C# immutable [records](https://docs.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/record), declare the following models in namespace `MyCommute.Shared.Models.Authentication`:
+
+- `LoginRequest`, with properties:
+
+  - `Id` (`Guid`)
+  - `Email` (`string`)
+
+- `LoginResponse`, with properties:
+
+  - `Token` (`string`)
+  - `Claims` ([`Claims[]`](https://docs.microsoft.com/en-us/dotnet/api/system.security.claims.claim))
+
+#### Implement the login endpoint
+Implement a new method `Login`, annotated with [`HttpPostAttribute`](https://docs.microsoft.com/en-us/dotnet/api/microsoft.aspnetcore.mvc.httppostattribute). This attribute signals that the endpoint only accepts POST requests.
+
+```c#
+[HttpPost]
+[AllowAnonymous]
+[ProducesResponseType(StatusCodes.Status200OK)]
+[ProducesResponseType(StatusCodes.Status401Unauthorized)]
+public async Task<ActionResult<LoginResponse>> Login(LoginRequest request)
+```
+
+The `Login` method accepts 1 parameter of type `LoginRequest`, and returns `Task<ActionResult<LoginResponse>>`
+This method queries the datastore for an employee matching the `LoginRequest.Id` property value. 
+
+If an employee is found, the `LoginRequest.Email` property value is used to verify the email address from the matched employee matches the provided email string.
+
+If verification succeeds, a Json Web Token is generated and returned using the `Employee.Id` & `Employee.Email` properties, using the following method:
+
+```c#
+private LoginResponse GenerateJwtToken(Guid id, string email)
+{
+    // generate token that is valid for 3 months
+    var tokenHandler = new JwtSecurityTokenHandler();
+    var key = Encoding.ASCII
+        .GetBytes(jwtConfiguration.Value.Secret);
+        
+    var claims = new List<Claim>
+    {
+        new (ClaimTypes.Name, email),
+        new (ClaimTypes.Sid, id.ToString())
+    };
+        
+    var claimsIdentity = new ClaimsIdentity(claims, JwtBearerDefaults.AuthenticationScheme);
+        
+    var tokenDescriptor = new SecurityTokenDescriptor
+    {
+        Subject = claimsIdentity,
+        Expires = DateTime.UtcNow.AddMonths(3),
+        SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+    };
+        
+    var token = tokenHandler.CreateToken(tokenDescriptor);
+        
+    return new LoginResponse(tokenHandler.WriteToken(token), claims);
+}
+```
+
+If no matching employee is found, email verification fails or any other exception is encountered, the `Login` method returns an [`UnauthorizedResult`](https://docs.microsoft.com/en-us/dotnet/api/microsoft.aspnetcore.mvc.controllerbase.unauthorized).

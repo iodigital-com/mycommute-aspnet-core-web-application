@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging;
 using MyCommute.Domain.Exceptions;
 using MyCommute.Shared.Models.Commute;
@@ -8,6 +9,7 @@ namespace MyCommute.WebApplication.Controllers;
 
 [ApiController]
 [Route("[controller]")]
+[Authorize]
 public class CommuteController : ControllerBase
 {
     private readonly ILogger<CommuteController> logger;

@@ -29,4 +29,8 @@
       <ProjectReference Include="..\MyCommute.WebApplication\MyCommute.WebApplication.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <None Remove="UnitTests\loginResponse.json" />
+    </ItemGroup>
+
 </Project>

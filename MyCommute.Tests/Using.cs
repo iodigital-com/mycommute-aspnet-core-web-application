@@ -18,4 +18,8 @@ global using MyCommute.Shared.Enums;
 global using MyCommute.Shared.Models;
 global using MyCommute.Shared.Models.User;
 global using MyCommute.Shared.Models.Commute;
+global using MyCommute.Shared.Models.Authentication;
+global using MyCommute.Shared.JsonConverters;
+global using MyCommute.Tests.Helpers;
+global using System.Net.Http.Headers;
 

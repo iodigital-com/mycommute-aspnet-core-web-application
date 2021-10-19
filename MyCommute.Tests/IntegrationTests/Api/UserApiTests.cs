@@ -37,8 +37,10 @@ public class UserApiTests
         Assert.AreNotEqual(Guid.Empty, userRegistrationResponse!.Id);
 
         employeeId = userRegistrationResponse.Id;
+        
+        await AuthenticationHelper.LoginAsync(client, employeeId, request.Email);
     }
-    
+
     [Test]
     public async Task ShouldFail()
     {
@@ -81,11 +83,5 @@ public class UserApiTests
         var response = await client.DeleteAsync(uri);
         
         Assert.IsTrue(response.IsSuccessStatusCode);
-    }
-
-    [OneTimeTearDown]
-    public void GlobalTearDown()
-    {
-        
     }
 }

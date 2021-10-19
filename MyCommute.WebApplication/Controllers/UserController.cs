@@ -1,4 +1,6 @@
-﻿namespace MyCommute.WebApplication.Controllers;
+﻿using Microsoft.AspNetCore.Authorization;
+
+namespace MyCommute.WebApplication.Controllers;
 
 [ApiController]
 [Route("[controller]")]
@@ -16,6 +18,7 @@ public class UserController : ControllerBase
     }
 
     [HttpPost]
+    [AllowAnonymous]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<UserRegistrationResponse>> Register(UserRegistrationRequest request)
@@ -49,6 +52,7 @@ public class UserController : ControllerBase
     }
 
     [HttpPut]
+    [Authorize]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -87,6 +91,7 @@ public class UserController : ControllerBase
     }
 
     [HttpDelete]
+    [Authorize]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult> Delete(Guid id)

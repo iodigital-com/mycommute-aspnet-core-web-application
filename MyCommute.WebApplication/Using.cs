@@ -18,3 +18,5 @@ global using MyCommute.Shared.Enums;
 global using MyCommute.Shared.Models;
 global using MyCommute.Domain.Exceptions;
 global using MyCommute.Shared.Models.User;
+global using MyCommute.WebApplication.Configuration;
+global using MyCommute.Shared.Models.Authentication;
